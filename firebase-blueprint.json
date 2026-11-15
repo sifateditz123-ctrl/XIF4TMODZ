@@ -1,0 +1,251 @@
+{
+  "entities": {
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Global storefront configuration, payment accounts, currency rates, and support links.",
+      "type": "object",
+      "properties": {
+        "storeName": { "type": "string", "maxLength": 80 },
+        "bkashNumber": { "type": "string", "maxLength": 40 },
+        "bkashType": { "type": "string", "maxLength": 20 },
+        "nagadNumber": { "type": "string", "maxLength": 40 },
+        "nagadType": { "type": "string", "maxLength": 20 },
+        "rocketNumber": { "type": "string", "maxLength": 40 },
+        "rocketType": { "type": "string", "maxLength": 20 },
+        "binanceId": { "type": "string", "maxLength": 60 },
+        "usdtRate": { "type": "number" },
+        "inrRate": { "type": "number" },
+        "telegramUrl": { "type": "string", "maxLength": 300 },
+        "whatsappUrl": { "type": "string", "maxLength": 300 },
+        "showAppBanner": { "type": "boolean" },
+        "appDownloadUrl": { "type": "string", "maxLength": 300 },
+        "appBannerTitle": { "type": "string", "maxLength": 100 },
+        "appBannerSubtitle": { "type": "string", "maxLength": 200 },
+        "adminEmails": { "type": "array" }
+      },
+      "required": ["storeName"]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "Promotional slider banner displayed at the top of the storefront.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 120 },
+        "subtitle": { "type": "string", "maxLength": 240 },
+        "badge": { "type": "string", "maxLength": 40 },
+        "imageUrl": { "type": "string", "maxLength": 2000 },
+        "order": { "type": "number" },
+        "active": { "type": "boolean" }
+      },
+      "required": ["title", "imageUrl", "order", "active"]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Digital license or panel product with custom durations and pricing.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 120 },
+        "category": { "type": "string", "maxLength": 40 },
+        "brand": { "type": "string", "maxLength": 40 },
+        "imageUrl": { "type": "string", "maxLength": 500 },
+        "platformBadges": { "type": "array" },
+        "apiConnected": { "type": "boolean" },
+        "setupVideoUrl": { "type": "string", "maxLength": 500 },
+        "fileDownloadUrl": { "type": "string", "maxLength": 500 },
+        "description": { "type": "string", "maxLength": 600 },
+        "durations": { "type": "array" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "category", "durations", "active"]
+    },
+    "LicenseKey": {
+      "title": "LicenseKey",
+      "description": "Individual license key stock item mapped to a product and duration.",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string", "maxLength": 128 },
+        "productName": { "type": "string", "maxLength": 120 },
+        "durationId": { "type": "string", "maxLength": 64 },
+        "durationLabel": { "type": "string", "maxLength": 64 },
+        "keyValue": { "type": "string", "maxLength": 256 },
+        "status": { "type": "string", "enum": ["available", "sold"] },
+        "soldToUid": { "type": "string", "maxLength": 128 },
+        "orderId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "soldAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["productId", "durationId", "keyValue", "status"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Registered customer profile, wallet balance, role, and purchase metrics.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 160 },
+        "displayName": { "type": "string", "maxLength": 80 },
+        "photoURL": { "type": "string", "maxLength": 500 },
+        "role": { "type": "string", "enum": ["user", "reseller", "admin"] },
+        "resellerDiscountPct": { "type": "number" },
+        "appliedInviteId": { "type": "string", "maxLength": 128 },
+        "walletBalance": { "type": "number" },
+        "totalSpent": { "type": "number" },
+        "totalKeys": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role", "walletBalance", "totalSpent", "totalKeys"]
+    },
+    "RoleInvite": {
+      "title": "RoleInvite",
+      "description": "Admin or reseller pre-assignment keyed by hex-encoded lowercase email.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "maxLength": 160 },
+        "role": { "type": "string", "enum": ["admin", "reseller"] },
+        "resellerDiscountPct": { "type": "number" },
+        "addedByEmail": { "type": "string", "maxLength": 160 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "resellerDiscountPct"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer digital license order and delivered keys.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 160 },
+        "userName": { "type": "string", "maxLength": 80 },
+        "productId": { "type": "string", "maxLength": 128 },
+        "productName": { "type": "string", "maxLength": 120 },
+        "productImage": { "type": "string", "maxLength": 500 },
+        "durationId": { "type": "string", "maxLength": 64 },
+        "durationLabel": { "type": "string", "maxLength": 64 },
+        "durationHours": { "type": "number" },
+        "quantity": { "type": "number" },
+        "unitPriceBdt": { "type": "number" },
+        "discountBdt": { "type": "number" },
+        "couponCode": { "type": "string", "maxLength": 40 },
+        "totalAmountBdt": { "type": "number" },
+        "paymentMethod": { "type": "string", "maxLength": 30 },
+        "trxId": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["pending", "completed", "rejected"] },
+        "deliveredKeys": { "type": "array" },
+        "expiresAt": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "productId", "productName", "durationId", "quantity", "totalAmountBdt", "paymentMethod", "status"]
+    },
+    "BalanceRequest": {
+      "title": "BalanceRequest",
+      "description": "User wallet top-up request submitted with payment TrxID.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 160 },
+        "userName": { "type": "string", "maxLength": 80 },
+        "method": { "type": "string", "maxLength": 30 },
+        "amountBdt": { "type": "number" },
+        "trxId": { "type": "string", "maxLength": 100 },
+        "senderNumber": { "type": "string", "maxLength": 60 },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "processedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "method", "amountBdt", "trxId", "status"]
+    },
+    "TransactionLog": {
+      "title": "TransactionLog",
+      "description": "User financial ledger entry for purchases, top-ups, and admin adjustments.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "type": { "type": "string", "maxLength": 30 },
+        "title": { "type": "string", "maxLength": 160 },
+        "amountBdt": { "type": "number" },
+        "method": { "type": "string", "maxLength": 30 },
+        "status": { "type": "string", "maxLength": 30 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "type", "title", "amountBdt", "method", "status"]
+    },
+    "Coupon": {
+      "title": "Coupon",
+      "description": "Promotional discount code managed by admins.",
+      "type": "object",
+      "properties": {
+        "code": { "type": "string", "maxLength": 40 },
+        "type": { "type": "string", "enum": ["percent", "fixed"] },
+        "value": { "type": "number" },
+        "maxUses": { "type": "number" },
+        "usageCount": { "type": "number" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["code", "type", "value", "active"]
+    },
+    "RecentPurchase": {
+      "title": "RecentPurchase",
+      "description": "Public masked summary of recent store purchases (capped at 20 displayed).",
+      "type": "object",
+      "properties": {
+        "displayNameMasked": { "type": "string", "maxLength": 60 },
+        "productName": { "type": "string", "maxLength": 120 },
+        "productImage": { "type": "string", "maxLength": 500 },
+        "durationLabel": { "type": "string", "maxLength": 64 },
+        "quantity": { "type": "number" },
+        "amountBdt": { "type": "number" },
+        "paymentMethod": { "type": "string", "maxLength": 30 },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["displayNameMasked", "productName", "durationLabel", "quantity", "amountBdt", "paymentMethod"]
+    }
+  },
+  "firestore": {
+    "/settings/{docId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Global site settings document (settings/site)."
+    },
+    "/banners/{bannerId}": {
+      "schema": { "$ref": "#/entities/Banner" },
+      "description": "Promotional storefront banners."
+    },
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Storefront digital panel products."
+    },
+    "/licenseKeys/{keyId}": {
+      "schema": { "$ref": "#/entities/LicenseKey" },
+      "description": "Inventory of license keys per product and duration."
+    },
+    "/users/{uid}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User accounts, roles, and wallet balances."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "User purchase orders and delivered license keys."
+    },
+    "/balanceRequests/{reqId}": {
+      "schema": { "$ref": "#/entities/BalanceRequest" },
+      "description": "User wallet top-up requests."
+    },
+    "/transactions/{txId}": {
+      "schema": { "$ref": "#/entities/TransactionLog" },
+      "description": "User transaction history ledger."
+    },
+    "/coupons/{couponId}": {
+      "schema": { "$ref": "#/entities/Coupon" },
+      "description": "Promotional discount codes."
+    },
+    "/recentPurchases/{docId}": {
+      "schema": { "$ref": "#/entities/RecentPurchase" },
+      "description": "Public masked feed of recent completed orders."
+    },
+    "/roleInvites/{inviteId}": {
+      "schema": { "$ref": "#/entities/RoleInvite" },
+      "description": "Admin-managed role invitations for admins and resellers."
+    }
+  }
+}

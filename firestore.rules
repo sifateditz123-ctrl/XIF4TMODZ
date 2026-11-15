@@ -1,0 +1,288 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isVerifiedEmail() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedEmail()
+        && request.auth.token.email == 'xif4t8@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (
+        isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      );
+    }
+
+    function isValidSettings(data) {
+      return data.keys().hasAll(['storeName'])
+        && data.storeName is string && data.storeName.size() > 0 && data.storeName.size() <= 80;
+    }
+
+    function isValidBanner(data) {
+      return data.keys().hasAll(['title', 'imageUrl', 'order', 'active'])
+        && data.keys().hasOnly(['title', 'subtitle', 'badge', 'imageUrl', 'order', 'active'])
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 120
+        && data.imageUrl is string && data.imageUrl.size() <= 2000
+        && data.order is number
+        && data.active is bool;
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['name', 'category', 'durations', 'active'])
+        && data.name is string && data.name.size() > 0 && data.name.size() <= 120
+        && data.category is string && data.category.size() > 0 && data.category.size() <= 40
+        && data.durations is list && data.durations.size() <= 30
+        && data.active is bool;
+    }
+
+    function isValidCoupon(data) {
+      return data.keys().hasAll(['code', 'type', 'value', 'active'])
+        && data.code is string && data.code.size() > 0 && data.code.size() <= 40
+        && data.type in ['percent', 'fixed']
+        && data.value is number && data.value >= 0
+        && data.active is bool;
+    }
+
+    function isValidRecentPurchase(data) {
+      return data.keys().hasAll(['displayNameMasked', 'productName', 'durationLabel', 'quantity', 'amountBdt', 'paymentMethod', 'createdAt'])
+        && data.keys().hasOnly(['displayNameMasked', 'productName', 'productImage', 'durationLabel', 'quantity', 'amountBdt', 'paymentMethod', 'createdAt'])
+        && data.displayNameMasked is string && data.displayNameMasked.size() <= 60
+        && data.productName is string && data.productName.size() <= 120
+        && data.durationLabel is string && data.durationLabel.size() <= 64
+        && data.quantity is number && data.quantity >= 1 && data.quantity <= 100
+        && data.amountBdt is number && data.amountBdt >= 0
+        && data.paymentMethod is string && data.paymentMethod.size() <= 30
+        && data.createdAt == request.time;
+    }
+
+    function isValidRoleInvite(data) {
+      return data.keys().hasAll(['email', 'role', 'resellerDiscountPct', 'createdAt'])
+        && data.keys().hasOnly(['email', 'role', 'resellerDiscountPct', 'addedByEmail', 'createdAt'])
+        && data.email is string && data.email.size() > 3 && data.email.size() <= 160
+        && data.role in ['admin', 'reseller']
+        && data.resellerDiscountPct is number && data.resellerDiscountPct >= 0 && data.resellerDiscountPct <= 80
+        && data.createdAt == request.time;
+    }
+
+    function hasValidInviteForRole(data) {
+      return isVerifiedEmail()
+        && ('appliedInviteId' in data)
+        && isValidId(data.appliedInviteId)
+        && exists(/databases/$(database)/documents/roleInvites/$(data.appliedInviteId))
+        && get(/databases/$(database)/documents/roleInvites/$(data.appliedInviteId)).data.email == request.auth.token.email.lower()
+        && get(/databases/$(database)/documents/roleInvites/$(data.appliedInviteId)).data.role == data.role
+        && (
+          data.role != 'reseller'
+          || (('resellerDiscountPct' in data) && data.resellerDiscountPct == get(/databases/$(database)/documents/roleInvites/$(data.appliedInviteId)).data.resellerDiscountPct)
+        );
+    }
+
+    function isValidUserCreate(data, uid) {
+      return data.keys().hasAll(['uid', 'email', 'displayName', 'role', 'walletBalance', 'totalSpent', 'totalKeys', 'createdAt'])
+        && data.keys().hasOnly(['uid', 'email', 'displayName', 'photoURL', 'role', 'resellerDiscountPct', 'appliedInviteId', 'walletBalance', 'totalSpent', 'totalKeys', 'createdAt'])
+        && data.uid == uid
+        && data.email is string && data.email.size() <= 160
+        && data.displayName is string && data.displayName.size() <= 80
+        && (
+          data.role == 'user'
+          || (data.role == 'admin' && isBootstrappedAdmin())
+          || (data.role in ['admin', 'reseller'] && hasValidInviteForRole(data))
+        )
+        && data.walletBalance == 0
+        && data.totalSpent == 0
+        && data.totalKeys == 0
+        && data.createdAt == request.time;
+    }
+
+    function isValidUserSelfUpdate(data, prev) {
+      return data.uid == prev.uid
+        && data.email == prev.email
+        && data.role == prev.role
+        && data.createdAt == prev.createdAt
+        && data.walletBalance is number
+        && data.walletBalance >= 0
+        && data.walletBalance <= prev.walletBalance
+        && data.totalSpent is number && data.totalSpent >= prev.totalSpent
+        && data.totalKeys is number && data.totalKeys >= prev.totalKeys
+        && data.displayName is string && data.displayName.size() <= 80;
+    }
+
+    function isValidUserInviteClaimUpdate(data, prev) {
+      return data.uid == prev.uid
+        && data.email == prev.email
+        && data.createdAt == prev.createdAt
+        && data.walletBalance == prev.walletBalance
+        && data.totalSpent == prev.totalSpent
+        && data.totalKeys == prev.totalKeys
+        && data.role in ['admin', 'reseller']
+        && hasValidInviteForRole(data);
+    }
+
+    function isValidOrderCreate(data) {
+      return data.keys().hasAll(['userId', 'productId', 'productName', 'durationId', 'quantity', 'totalAmountBdt', 'paymentMethod', 'status', 'createdAt'])
+        && data.userId == request.auth.uid
+        && data.productId is string && data.productId.size() <= 128
+        && data.productName is string && data.productName.size() <= 120
+        && data.durationId is string && data.durationId.size() <= 64
+        && data.quantity is number && data.quantity >= 1 && data.quantity <= 50
+        && data.totalAmountBdt is number && data.totalAmountBdt >= 0
+        && data.paymentMethod is string && data.paymentMethod.size() <= 30
+        && data.status in ['pending', 'completed']
+        && data.createdAt == request.time;
+    }
+
+    function isValidBalanceRequestCreate(data) {
+      return data.keys().hasAll(['userId', 'method', 'amountBdt', 'trxId', 'status', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'userEmail', 'userName', 'method', 'amountBdt', 'trxId', 'senderNumber', 'status', 'createdAt'])
+        && data.userId == request.auth.uid
+        && data.method is string && data.method.size() <= 30
+        && data.amountBdt is number && data.amountBdt >= 10
+        && data.trxId is string && data.trxId.size() >= 4 && data.trxId.size() <= 100
+        && data.status == 'pending'
+        && data.createdAt == request.time;
+    }
+
+    function isValidTransactionCreate(data) {
+      return data.keys().hasAll(['userId', 'type', 'title', 'amountBdt', 'method', 'status', 'createdAt'])
+        && data.keys().hasOnly(['userId', 'type', 'title', 'amountBdt', 'method', 'status', 'createdAt'])
+        && data.userId is string && data.userId.size() > 0 && data.userId.size() <= 128
+        && data.type is string && data.type.size() <= 30
+        && data.title is string && data.title.size() <= 160
+        && data.amountBdt is number
+        && data.method is string && data.method.size() <= 30
+        && data.status is string && data.status.size() <= 30
+        && data.createdAt == request.time;
+    }
+
+    match /settings/{docId} {
+      allow get, list: if true;
+      allow create, update: if isAdmin() && isValidId(docId) && isValidSettings(incoming());
+      allow delete: if isAdmin() && isValidId(docId);
+    }
+
+    match /banners/{bannerId} {
+      allow get, list: if true;
+      allow create, update: if isAdmin() && isValidId(bannerId) && isValidBanner(incoming());
+      allow delete: if isAdmin() && isValidId(bannerId);
+    }
+
+    match /products/{productId} {
+      allow get, list: if true;
+      allow create, update: if isAdmin() && isValidId(productId) && isValidProduct(incoming());
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    match /coupons/{couponId} {
+      allow get, list: if true;
+      allow create: if isAdmin() && isValidId(couponId) && isValidCoupon(incoming());
+      allow update: if isValidId(couponId) && isValidCoupon(incoming()) && (
+        isAdmin() || (
+          isSignedIn()
+          && incoming().diff(existing()).affectedKeys().hasOnly(['usageCount'])
+          && incoming().usageCount == existing().usageCount + 1
+        )
+      );
+      allow delete: if isAdmin() && isValidId(couponId);
+    }
+
+    match /recentPurchases/{docId} {
+      allow get, list: if true;
+      allow create: if isSignedIn() && isValidId(docId) && isValidRecentPurchase(incoming());
+      allow update, delete: if isAdmin() && isValidId(docId);
+    }
+
+    match /users/{uid} {
+      allow get: if isOwner(uid) || isAdmin();
+      allow list: if isAdmin() || (isSignedIn() && existing().uid == request.auth.uid);
+      allow create: if isOwner(uid) && isValidId(uid) && isValidUserCreate(incoming(), uid);
+      allow update: if isValidId(uid) && (
+        isAdmin() || (
+          isOwner(uid)
+          && isValidUserSelfUpdate(incoming(), existing())
+          && incoming().diff(existing()).affectedKeys().hasOnly(['walletBalance', 'totalSpent', 'totalKeys', 'displayName', 'photoURL'])
+        ) || (
+          isOwner(uid)
+          && isValidUserInviteClaimUpdate(incoming(), existing())
+          && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'resellerDiscountPct', 'appliedInviteId'])
+        )
+      );
+      allow delete: if isAdmin() && isValidId(uid);
+    }
+
+    match /roleInvites/{inviteId} {
+      allow get: if isAdmin() || (isVerifiedEmail() && (resource == null || existing().email == request.auth.token.email.lower()));
+      allow list: if isAdmin();
+      allow create, update: if isAdmin() && isValidId(inviteId) && isValidRoleInvite(incoming());
+      allow delete: if isAdmin() && isValidId(inviteId);
+    }
+
+    match /orders/{orderId} {
+      allow get: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(orderId) && isValidOrderCreate(incoming());
+      allow update, delete: if isAdmin() && isValidId(orderId);
+    }
+
+    match /balanceRequests/{reqId} {
+      allow get: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(reqId) && isValidBalanceRequestCreate(incoming());
+      allow update, delete: if isAdmin() && isValidId(reqId);
+    }
+
+    match /transactions/{txId} {
+      allow get: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow list: if isAdmin() || (isSignedIn() && existing().userId == request.auth.uid);
+      allow create: if isValidId(txId) && isValidTransactionCreate(incoming()) && (
+        isAdmin() || (isSignedIn() && incoming().userId == request.auth.uid)
+      );
+      allow update, delete: if isAdmin() && isValidId(txId);
+    }
+
+    match /licenseKeys/{keyId} {
+      allow get: if isAdmin() || (isSignedIn() && (existing().status == 'available' || existing().soldToUid == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && (existing().status == 'available' || existing().soldToUid == request.auth.uid));
+      allow create, delete: if isAdmin() && isValidId(keyId);
+      allow update: if isValidId(keyId) && (
+        isAdmin() || (
+          isSignedIn()
+          && existing().status == 'available'
+          && incoming().status == 'sold'
+          && incoming().soldToUid == request.auth.uid
+          && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'soldToUid', 'orderId', 'soldAt'])
+          && incoming().soldAt == request.time
+        )
+      );
+    }
+  }
+}
